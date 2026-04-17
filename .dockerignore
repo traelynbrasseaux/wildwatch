@@ -1,0 +1,45 @@
+# Assistant / editor session state
+.claude/
+.cursorignore
+.cursorindexingignore
+.vscode/
+.idea/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Python environments + caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# DVC / MLflow local state (image pulls its model artifact via a
+# different path — don't bake these into the build context)
+.dvc/
+.dvcignore
+mlruns/
+data/
+reports/
+
+# Dev-only artifacts
+notebooks/
+tests/
+scripts/
+*.md
+!README.md
+LICENSE
+wildwatch_mlops_prompt.md
+
+# OS noise
+.DS_Store
+Thumbs.db
