@@ -1,0 +1,63 @@
+# Central config for WildWatch MLOps.
+# All magic numbers and thresholds live here — source code should read from this file.
+
+seed: 42
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  models_dir: models
+  reports_dir: reports
+
+# -----------------------------------------------------------------------------
+# Dataset: synthetic placeholder generator.
+# TODO: swap in a real dataset (Caltech Camera Traps subset, Animals-10, etc.)
+# -----------------------------------------------------------------------------
+dataset:
+  classes:
+    - deer
+    - fox
+    - coyote
+    - raccoon
+    - bobcat
+    - opossum
+    - rabbit
+    - empty
+  samples_per_class: 80      # 8 classes * 80 = 640 total synthetic images
+  image_size_generated: 256  # generated at 256, downsampled to 224 in preprocess
+
+preprocess:
+  image_size: 224
+  split_ratios:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+
+validate:
+  min_samples_per_class: 10
+  max_class_imbalance_ratio: 5.0   # largest_class / smallest_class
+  fail_on_corrupt: true
+
+# -----------------------------------------------------------------------------
+# Training (used in Phase 2; defined here for central config discipline).
+# -----------------------------------------------------------------------------
+training:
+  backbone: efficientnet_b0
+  learning_rate: 0.001
+  batch_size: 32
+  epochs: 10
+  freeze_backbone: true
+  augmentation:
+    horizontal_flip: true
+    rotation_degrees: 15
+    color_jitter: 0.2
+  num_workers: 2
+
+# -----------------------------------------------------------------------------
+# Monitoring / drift (used in Phase 5).
+# -----------------------------------------------------------------------------
+monitoring:
+  reference_window_size: 200
+  current_window_size: 200
+  psi_threshold: 0.2
+  ks_pvalue_threshold: 0.05

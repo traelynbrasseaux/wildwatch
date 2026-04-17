@@ -1,0 +1,35 @@
+stages:
+  download:
+    cmd: python -m src.data.download --params params.yaml
+    deps:
+      - src/data/download.py
+    params:
+      - seed
+      - dataset
+      - paths.raw_dir
+    outs:
+      - data/raw
+
+  preprocess:
+    cmd: python -m src.data.preprocess --params params.yaml
+    deps:
+      - src/data/preprocess.py
+      - data/raw
+    params:
+      - seed
+      - preprocess
+      - paths.processed_dir
+    outs:
+      - data/processed
+
+  validate:
+    cmd: python -m src.data.validate --params params.yaml --report reports/data_validation.json
+    deps:
+      - src/data/validate.py
+      - data/processed
+    params:
+      - validate
+      - paths.processed_dir
+    outs:
+      - reports/data_validation.json:
+          cache: false

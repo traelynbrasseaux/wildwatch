@@ -1,0 +1,84 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: python -m src.data.download --params params.yaml
+    deps:
+    - path: src/data/download.py
+      hash: md5
+      md5: 8efde6ab25efd9583e3f761260955624
+      size: 4646
+    params:
+      params.yaml:
+        dataset:
+          classes:
+          - deer
+          - fox
+          - coyote
+          - raccoon
+          - bobcat
+          - opossum
+          - rabbit
+          - empty
+          samples_per_class: 80
+          image_size_generated: 256
+        paths.raw_dir: data/raw
+        seed: 42
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: f5cd1a9502def116f3d0f59692e93325.dir
+      size: 17486798
+      nfiles: 640
+  preprocess:
+    cmd: python -m src.data.preprocess --params params.yaml
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: f5cd1a9502def116f3d0f59692e93325.dir
+      size: 17486798
+      nfiles: 640
+    - path: src/data/preprocess.py
+      hash: md5
+      md5: 6bd74c7a185077661d2e07c87501a8ca
+      size: 5467
+    params:
+      params.yaml:
+        paths.processed_dir: data/processed
+        preprocess:
+          image_size: 224
+          split_ratios:
+            train: 0.7
+            val: 0.15
+            test: 0.15
+        seed: 42
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: bcad089e3237ea90effa00da61b2850e.dir
+      size: 9178688
+      nfiles: 641
+  validate:
+    cmd: python -m src.data.validate --params params.yaml --report 
+      reports/data_validation.json
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: bcad089e3237ea90effa00da61b2850e.dir
+      size: 9178688
+      nfiles: 641
+    - path: src/data/validate.py
+      hash: md5
+      md5: 711adbc66b0758395cc8313c7f572ee2
+      size: 5863
+    params:
+      params.yaml:
+        paths.processed_dir: data/processed
+        validate:
+          min_samples_per_class: 10
+          max_class_imbalance_ratio: 5.0
+          fail_on_corrupt: true
+    outs:
+    - path: reports/data_validation.json
+      hash: md5
+      md5: fc263cfd35f2d25f600ec635d70e3e96
+      size: 341
