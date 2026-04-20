@@ -44,6 +44,7 @@ validate:
 training:
   backbone: efficientnet_b0
   learning_rate: 0.001
+  weight_decay: 0.0001
   batch_size: 32
   epochs: 10
   freeze_backbone: true
@@ -52,6 +53,10 @@ training:
     rotation_degrees: 15
     color_jitter: 0.2
   num_workers: 2
+  mlflow_experiment: wildwatch-classifier
+  mlflow_tracking_uri: file:./mlruns
+  checkpoint_name: model.pt
+  resume_from: null       # path to a checkpoint to resume from, or null
 
 # -----------------------------------------------------------------------------
 # Monitoring / drift (used in Phase 5).

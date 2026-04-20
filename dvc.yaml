@@ -33,3 +33,28 @@ stages:
     outs:
       - reports/data_validation.json:
           cache: false
+
+  train:
+    cmd: python -m src.training.train --params params.yaml
+    deps:
+      - src/training/train.py
+      - src/training/config.py
+      - src/training/model.py
+      - src/training/evaluate.py
+      - data/processed
+      - reports/data_validation.json
+    params:
+      - seed
+      - training
+      - paths.models_dir
+      - paths.reports_dir
+    outs:
+      - models/model.pt
+      - models/train_summary.json:
+          cache: false
+    metrics:
+      - reports/test_metrics.json:
+          cache: false
+    plots:
+      - reports/confusion_matrix.png:
+          cache: false
