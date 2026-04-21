@@ -1,0 +1,64 @@
+# Local development stack: FastAPI server + MLflow tracking server.
+# Run with `docker compose up --build`. The dashboard service (Phase 5) can
+# be enabled later by uncommenting the block at the bottom.
+
+services:
+  mlflow:
+    # Pin a small Python base and install mlflow at container start. Avoids
+    # depending on a 3rd-party mlflow image that may rename or disappear.
+    image: python:3.11-slim
+    container_name: wildwatch-mlflow
+    working_dir: /mlflow
+    command: >
+      sh -c "pip install --no-cache-dir 'mlflow>=2.13' &&
+             mlflow server
+             --host 0.0.0.0
+             --port 5000
+             --backend-store-uri sqlite:///mlflow/mlflow.db
+             --artifacts-destination /mlflow/artifacts"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wildwatch-api
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      # Override the tracking URI so the serving app talks to the compose
+      # service, not the host's local filesystem.
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the training output read-only so the local-checkpoint fallback
+      # can serve when MLflow is empty (first-boot experience).
+      - ./models:/app/models:ro
+
+# Uncomment for Phase 5:
+#  dashboard:
+#    image: python:3.11-slim
+#    container_name: wildwatch-dashboard
+#    working_dir: /app
+#    command: >
+#      sh -c "pip install --no-cache-dir streamlit plotly pandas &&
+#             streamlit run src/monitoring/dashboard.py --server.port 8501 --server.address 0.0.0.0"
+#    volumes:
+#      - ./src:/app/src:ro
+#      - ./params.yaml:/app/params.yaml:ro
+#    ports:
+#      - "8501:8501"
+
+volumes:
+  mlflow_data:

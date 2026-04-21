@@ -59,6 +59,28 @@ training:
   resume_from: null       # path to a checkpoint to resume from, or null
 
 # -----------------------------------------------------------------------------
+# Model registry & promotion (used in Phase 3 retraining workflow).
+# -----------------------------------------------------------------------------
+registry:
+  model_name: wildwatch-classifier
+  primary_metric: test_accuracy        # key in models/train_summary.json
+  promotion_threshold: 0.01            # new must beat prod by at least this much
+  promotion_target_stage: Staging      # promote automatically to Staging only;
+                                       # Production is a manual step.
+
+# -----------------------------------------------------------------------------
+# Serving (used in Phase 4 FastAPI app).
+# -----------------------------------------------------------------------------
+serving:
+  host: 0.0.0.0
+  port: 8080
+  # Fallback load order when the registry lookup fails:
+  #   1. Try MLflow Production for registry.model_name
+  #   2. Try local checkpoint at paths.models_dir/training.checkpoint_name
+  local_checkpoint_fallback: true
+  cors_origins: ["*"]
+
+# -----------------------------------------------------------------------------
 # Monitoring / drift (used in Phase 5).
 # -----------------------------------------------------------------------------
 monitoring:

@@ -1,0 +1,126 @@
+name: Retrain
+
+on:
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: "Force-promote the new run to Staging even if metrics do not improve."
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    # Weekly on Monday 06:00 UTC.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retrain-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  # Tests must pass before we burn compute on a training run.
+  tests:
+    name: Tests (gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install CPU PyTorch
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.2,<2.5" "torchvision>=0.17,<0.20"
+
+      - name: Install project + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff
+        run: ruff check src tests scripts
+
+      - name: Mypy
+        run: mypy src
+
+      - name: Pytest
+        run: pytest tests/ -v --deselect tests/test_sanity_inference.py
+
+  retrain:
+    name: Retrain + promote
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install CPU PyTorch
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.2,<2.5" "torchvision>=0.17,<0.20"
+
+      - name: Install project dependencies
+        run: pip install -e ".[dev]"
+
+      # In production we'd configure DVC with a real remote (S3/GCS) and
+      # pull the tracked dataset. This stays as a no-op when no remote is
+      # configured so the workflow runs against the local placeholder dataset.
+      - name: DVC pull
+        continue-on-error: true
+        run: |
+          if dvc remote list | grep -q .; then
+            dvc pull
+          else
+            echo "No DVC remote configured — skipping pull."
+          fi
+
+      - name: Ensure data pipeline is up to date
+        run: dvc repro download preprocess validate
+
+      - name: Train
+        run: dvc repro train
+
+      - name: Compare to production and promote
+        run: python -m scripts.compare_and_promote --params params.yaml
+
+      - name: Sanity-inference check on new model
+        continue-on-error: true
+        run: pytest tests/test_sanity_inference.py -v
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrain-${{ github.run_id }}
+          path: |
+            models/train_summary.json
+            reports/test_metrics.json
+            reports/promotion_report.json
+            reports/confusion_matrix.png
+            reports/registry_events.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Retrain summary" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f reports/promotion_report.json ]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat reports/promotion_report.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No promotion report was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
